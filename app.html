@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beatmaker</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:#140d1c; color:#f3e9ff; min-height:100vh; padding:18px 12px 50px; }
+  .wrap { max-width:720px; margin:0 auto; }
+  header { text-align:center; margin-bottom:12px; }
+  header h1 { font-size:26px; }
+  header .tag { color:#9a7fb8; font-size:12px; }
+  a { color:#c084fc; text-decoration:none; }
+  .controls { display:flex; gap:10px; justify-content:center; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+  .btn { background:#2a1a3d; border:1px solid #4a2d6b; color:#d6bdf5; border-radius:999px; padding:9px 20px; font-size:13.5px; font-weight:700; cursor:pointer; }
+  .btn.primary { background:#c084fc; color:#140d1c; border-color:#c084fc; }
+  .btn:hover { filter:brightness(1.15); }
+  .tempo { display:flex; align-items:center; gap:8px; background:#2a1a3d; border:1px solid #4a2d6b; border-radius:999px; padding:7px 16px; }
+  .tempo input { width:110px; accent-color:#c084fc; }
+  .tempo b { font-variant-numeric:tabular-nums; min-width:56px; font-size:13.5px; }
+  .grid { display:flex; flex-direction:column; gap:6px; }
+  .row { display:grid; grid-template-columns:64px repeat(16,1fr); gap:4px; align-items:center; }
+  .tname { font-size:11px; font-weight:700; color:#9a7fb8; text-transform:uppercase; letter-spacing:.5px; text-align:right; padding-right:8px; }
+  .pad { aspect-ratio:1; border-radius:5px; background:#241634; border:1px solid #38214f; cursor:pointer; transition:transform .05s; min-width:0; }
+  .pad:hover { border-color:#7c4dab; }
+  .pad.on { background:#c084fc; border-color:#c084fc; }
+  .pad.beat { background:#2f1d46; }
+  .pad.on.beat { background:#d8b4fe; }
+  .pad.playing { box-shadow:0 0 10px rgba(192,132,252,.9); transform:scale(1.12); }
+  .tools { display:flex; gap:8px; justify-content:center; margin-top:14px; flex-wrap:wrap; }
+  #shareMsg { text-align:center; font-size:12px; color:#9a7fb8; min-height:16px; margin-top:8px; }
+  .note { text-align:center; color:#5e457a; font-size:11.5px; margin-top:14px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>&#129345; Beatmaker</h1><div class="tag">tap pads, press play. 5 drums, 16 steps, all synthesized live.</div></header>
+  <div class="controls">
+    <button class="btn primary" id="play">&#9654; Play</button>
+    <div class="tempo"><input type="range" id="bpm" min="60" max="180" value="120"><b id="bpmVal">120 BPM</b></div>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="tools">
+    <button class="btn" data-preset="house">House</button>
+    <button class="btn" data-preset="boom-bap">Boom bap</button>
+    <button class="btn" data-preset="trap">Trap</button>
+    <button class="btn" id="clear">Clear</button>
+    <button class="btn" id="share">Copy share link</button>
+  </div>
+  <div id="shareMsg"></div>
+  <div class="note">Patterns save in the link - send it to a friend and they get your beat.<br><a href="index.html">about</a></div>
+</div>
+<script src="engine.js?v=1"></script>
+<script>
+var AC = window.AudioContext || window.webkitAudioContext;
+var ac = null, master = null;
+var S = { pattern:makeEmptyPattern(), bpm:120, playing:false, step:15, nextTime:0, timer:null, cur:0 };
+function $(id){return document.getElementById(id);}
+/* ---------- audio ---------- */
+function ensureAudio(){
+  if (!ac){ ac = new AC(); master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination); }
+  if (ac.state === 'suspended') ac.resume();
+}
+function noiseBuf(dur){
+  var b = ac.createBuffer(1, ac.sampleRate*dur, ac.sampleRate);
+  var d = b.getChannelData(0);
+  for (var i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+  return b;
+}
+function playKick(t){
+  var o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(45,t+0.11);
+  g.gain.setValueAtTime(1,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.28);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+0.3);
+}
+function playSnare(t){
+  var n = ac.createBufferSource(); n.buffer = noiseBuf(0.2);
+  var f = ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=1200;
+  var g = ac.createGain(); g.gain.setValueAtTime(0.7,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+  n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t+0.2);
+  var o = ac.createOscillator(), og = ac.createGain();
+  o.frequency.value=190; og.gain.setValueAtTime(0.5,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+  o.connect(og); og.connect(master); o.start(t); o.stop(t+0.12);
+}
+function playHihat(t){
+  var n = ac.createBufferSource(); n.buffer = noiseBuf(0.06);
+  var f = ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=7000;
+  var g = ac.createGain(); g.gain.setValueAtTime(0.35,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+  n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t+0.06);
+}
+function playClap(t){
+  var n = ac.createBufferSource(); n.buffer = noiseBuf(0.2);
+  var f = ac.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1800; f.Q.value=1.5;
+  var g = ac.createGain();
+  g.gain.setValueAtTime(0.9,t);
+  g.gain.setValueAtTime(0.5,t+0.03); g.gain.setValueAtTime(0.9,t+0.05);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.22);
+  n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t+0.25);
+}
+function playTom(t){
+  var o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(110,t+0.15);
+  g.gain.setValueAtTime(0.7,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+0.28);
+}
+var PLAYERS = { kick:playKick, snare:playSnare, hihat:playHihat, clap:playClap, tom:playTom };
+/* ---------- sequencer ---------- */
+function scheduleStep(step, t){
+  TRACKS.forEach(function(tr){ if (S.pattern[tr][step]) PLAYERS[tr](t); });
+  var delay = Math.max(0,(t-ac.currentTime)*1000);
+  setTimeout(function(){ highlight(step); }, delay);
+}
+function tick(){
+  while (S.nextTime < ac.currentTime + 0.12){
+    var ns = nextStep(S.step, S.nextTime, S.bpm);
+    S.step = ns.step; S.nextTime = ns.time;
+    scheduleStep(S.step, S.nextTime);
+  }
+}
+function startStop(){
+  ensureAudio();
+  if (S.playing){
+    clearInterval(S.timer); S.playing=false;
+    $('play').innerHTML='&#9654; Play'; highlight(-1);
+  } else {
+    S.playing=true; S.step=15; S.nextTime=ac.currentTime+0.06;
+    S.timer=setInterval(tick,25);
+    $('play').innerHTML='&#9632; Stop';
+  }
+}
+/* ---------- UI ---------- */
+var padEls = {};
+function buildGrid(){
+  var g = $('grid'); g.innerHTML=''; padEls={};
+  TRACKS.forEach(function(tr){
+    var row = document.createElement('div'); row.className='row';
+    var name = document.createElement('div'); name.className='tname'; name.textContent=tr;
+    row.appendChild(name);
+    padEls[tr]=[];
+    for (var i=0;i<STEPS;i++){
+      var d = document.createElement('div');
+      d.className='pad'+((i%4===0)?' beat':'');
+      d.dataset.tr=tr; d.dataset.i=i;
+      d.onclick=function(){ toggle(this.dataset.tr,+this.dataset.i); };
+      row.appendChild(d); padEls[tr].push(d);
+    }
+    g.appendChild(row);
+  });
+}
+function paint(){
+  TRACKS.forEach(function(tr){
+    for (var i=0;i<STEPS;i++) padEls[tr][i].classList.toggle('on',S.pattern[tr][i]);
+  });
+}
+function toggle(tr,i){ S.pattern[tr][i]=!S.pattern[tr][i]; padEls[tr][i].classList.toggle('on',S.pattern[tr][i]); $('shareMsg').textContent=''; }
+function highlight(step){
+  TRACKS.forEach(function(tr){ for (var i=0;i<STEPS;i++) padEls[tr][i].classList.toggle('playing',i===step); });
+}
+function loadFromHash(){
+  var m = location.hash.match(/p=([0-9a-f]{20})/i);
+  if (!m) return false;
+  var p = decodePattern(m[1]);
+  if (!p) return false;
+  S.pattern = p; paint();
+  return true;
+}
+$('play').onclick=startStop;
+$('bpm').oninput=function(){ S.bpm=+this.value; $('bpmVal').textContent=S.bpm+' BPM'; };
+$('clear').onclick=function(){ S.pattern=makeEmptyPattern(); paint(); $('shareMsg').textContent=''; };
+document.querySelectorAll('[data-preset]').forEach(function(b){
+  b.onclick=function(){
+    var pr = presetPattern(b.dataset.preset);
+    S.pattern=pr.pattern; S.bpm=pr.bpm;
+    $('bpm').value=S.bpm; $('bpmVal').textContent=S.bpm+' BPM';
+    paint(); $('shareMsg').textContent='';
+  };
+});
+$('share').onclick=function(){
+  var url = location.origin+location.pathname+'#p='+encodePattern(S.pattern)+'&b='+S.bpm;
+  var done = function(){ $('shareMsg').textContent='Link copied - it carries your pattern and tempo.'; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done,function(){ $('shareMsg').textContent=url; });
+  else $('shareMsg').textContent=url;
+};
+var bm = location.hash.match(/[?&]b=(\d+)/)||location.hash.match(/&b=(\d+)/);
+buildGrid();
+if (!loadFromHash()){
+  var pr = presetPattern('house');
+  S.pattern = pr.pattern; S.bpm = pr.bpm;
+}
+if (bm){ var v=Math.min(180,Math.max(60,+bm[1])); S.bpm=v; }
+$('bpm').value=S.bpm; $('bpmVal').textContent=S.bpm+' BPM';
+paint();
+</script>
+</body>
+</html>

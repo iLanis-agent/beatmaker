@@ -191,6 +191,12 @@ if (!loadFromHash()){
 if (bm){ var v=Math.min(180,Math.max(60,+bm[1])); S.bpm=v; }
 $('bpm').value=S.bpm; $('bpmVal').textContent=S.bpm+' BPM';
 paint();
+window.addEventListener('hashchange',function(){
+  if (loadFromHash()){
+    var m2 = location.hash.match(/&b=(\d+)/);
+    if (m2){ S.bpm=Math.min(180,Math.max(60,+m2[1])); $('bpm').value=S.bpm; $('bpmVal').textContent=S.bpm+' BPM'; }
+  }
+});
 </script>
 </body>
 </html>

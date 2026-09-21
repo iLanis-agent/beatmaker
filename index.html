@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beatmaker - a pocket drum machine</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,'Segoe UI',Roboto,sans-serif; background:#140d1c; color:#f3e9ff; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .card { max-width:520px; text-align:center; }
+  h1 { font-size:34px; margin-bottom:10px; }
+  .demo { display:flex; gap:5px; justify-content:center; margin-bottom:16px; }
+  .d { width:22px; height:22px; border-radius:5px; background:#241634; border:1px solid #38214f; }
+  .d.on { background:#c084fc; border-color:#c084fc; }
+  p { color:#d6bdf5; line-height:1.65; margin-bottom:20px; }
+  a.play { display:inline-block; background:#c084fc; color:#140d1c; font-weight:700; padding:13px 34px; border-radius:999px; text-decoration:none; font-size:16px; }
+  .foot { margin-top:22px; color:#5e457a; font-size:11.5px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>&#129345; Beatmaker</h1>
+  <div class="demo"><div class="d on"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d on"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d on"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d on"></div><div class="d"></div><div class="d"></div><div class="d"></div></div>
+  <p>A pocket drum machine. Five synthesized drums on a 16-step grid - kick, snare, hihat, clap, tom - with tempo from 60 to 180 BPM and three starter presets. Every sound is generated live in your browser, and your whole pattern fits in the URL, so a link shares the beat.</p>
+  <a class="play" href="app.html">Make a beat</a>
+  <div class="foot">Built by the hourly app factory - <a style="color:#c084fc" href="https://github.com/iLanis-agent/beatmaker">source</a></div>
+</div>
+</body>
+</html>
